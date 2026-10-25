@@ -1,49 +1,42 @@
 import { StyleSheet, Text, View } from 'react-native';
-import { MaterialIcons } from '@expo/vector-icons';
+
 import { COLORS } from '@/constants/colors';
+import { TYPOGRAPHY } from '@/constants/theme';
+import LogoMark from './ui/LogoMark';
 
 type HeaderProps = {
   title: string;
+  subtitle?: string;
 };
 
-export default function Header({ title }: HeaderProps) {
+export default function Header({ title, subtitle }: HeaderProps) {
   return (
     <View style={styles.container}>
-      <View style={styles.logoCircle}>
-        <MaterialIcons
-          name="qr-code-scanner"
-          size={36}
-          color={COLORS.accent}
-        />
+      <LogoMark size={52} />
+      <View style={styles.text}>
+        <Text style={styles.title}>{title}</Text>
+        {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
       </View>
-      <Text style={styles.title}>{title}</Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
+    flexDirection: 'row',
     alignItems: 'center',
+    gap: 12,
   },
-  logoCircle: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: COLORS.surface,
-    borderWidth: 1,
-    borderColor: COLORS.accent,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 12,
-    shadowColor: '#06B6D4',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.5,
-    shadowRadius: 10,
-    elevation: 6,
+  text: {
+    flex: 1,
   },
   title: {
-    fontSize: 24,
-    fontWeight: '700',
+    ...TYPOGRAPHY.section,
     color: COLORS.textPrimary,
+  },
+  subtitle: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    marginTop: 2,
   },
 });

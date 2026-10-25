@@ -46,41 +46,32 @@ export async function registerAttendance(
   }
   const payload = parsed.payload;
 
-  const now = Date.now();
-  const start = payload.start ? new Date(payload.start).getTime() : null;
-  const end = payload.end ? new Date(payload.end).getTime() : null;
+  const event = await getEventByCode(payload.event);
+  if (!event) {
+    return {
+      success: false,
+      message:
+        'Event not found. Ask your teacher to create the event before scanning.',
+    };
+  }
 
+  const start = event.start_time
+    ? new Date(event.start_time).getTime()
+    : payload.start
+      ? new Date(payload.start).getTime()
+      : null;
+  const end = event.end_time
+    ? new Date(event.end_time).getTime()
+    : payload.end
+      ? new Date(payload.end).getTime()
+      : null;
+
+  const now = Date.now();
   if (start && now < start) {
     return { success: false, message: 'Event has not started yet.' };
   }
   if (end && now > end) {
     return { success: false, message: 'Event has already ended.' };
-  }
-
-  const title = payload.title ?? payload.event;
-  let event: { id: string; title: string } | null = null;
-
-  const foundEvent = await getEventByCode(payload.event);
-  if (foundEvent) {
-    event = foundEvent;
-  } else {
-    const { data: newEvent, error: insertError } = await supabase
-      .from('events')
-      .insert([
-        {
-          event_code: payload.event,
-          title,
-          start_time: payload.start ?? null,
-          end_time: payload.end ?? null,
-        },
-      ])
-      .select('id, title')
-      .single();
-
-    if (insertError) {
-      return { success: false, message: 'Could not create event.' };
-    }
-    event = newEvent;
   }
 
   const { error: attError } = await supabase.from('attendance').insert([

@@ -7,12 +7,13 @@ export type Profile = {
   email: string;
   full_name: string | null;
   role: Role;
+  created_at?: string;
 };
 
 export async function getProfile(userId: string): Promise<Profile | null> {
   const { data, error } = await supabase
     .from('profiles')
-    .select('id, email, full_name, role')
+    .select('*')
     .eq('id', userId)
     .maybeSingle();
 

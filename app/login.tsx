@@ -1,26 +1,29 @@
 import { useState } from 'react';
 import {
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
   KeyboardAvoidingView,
   Platform,
+  Pressable,
   ScrollView,
-  ActivityIndicator,
-  TouchableWithoutFeedback,
-  Keyboard,
+  StyleSheet,
+  Text,
+  View,
 } from 'react-native';
 import { Link, useRouter } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 
+import AppBackground from '@/components/ui/AppBackground';
 import AppButton from '@/components/AppButton';
-import Header from '@/components/Header';
+import Badge from '@/components/ui/Badge';
+import Card from '@/components/ui/Card';
+import FadeIn from '@/components/ui/FadeIn';
+import FormField from '@/components/ui/FormField';
+import LogoMark from '@/components/ui/LogoMark';
 import { COLORS } from '@/constants/colors';
-import { signIn } from '@/lib/auth';
+import { SPACING, TYPOGRAPHY } from '@/constants/theme';
+import { signIn, authErrorMessage } from '@/lib/auth';
 
 export default function LoginScreen() {
-  const insets = useSafeAreaInsets();
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -29,13 +32,17 @@ export default function LoginScreen() {
 
   const handleLogin = async () => {
     setError(null);
+    if (!email.trim() || !password) {
+      setError('Enter your email and password to continue.');
+      return;
+    }
     setLoading(true);
 
     try {
       const { error: authError } = await signIn(email.trim(), password);
 
       if (authError) {
-        setError(authError.message);
+        setError(authErrorMessage(authError.message));
       } else {
         router.replace('/(tabs)');
       }
@@ -47,141 +54,249 @@ export default function LoginScreen() {
   };
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
-      <KeyboardAvoidingView
-        style={styles.keyboardView}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
-      >
-        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+    <AppBackground>
+      <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
+        <KeyboardAvoidingView
+          style={styles.flex}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
           <ScrollView
-            contentContainerStyle={styles.scrollContent}
+            contentContainerStyle={styles.content}
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
           >
-            <View style={styles.headerContainer}>
-              <Header title="QR Attendance" />
-            </View>
+            <FadeIn>
+              <View style={styles.brandRow}>
+                <View style={styles.brand}>
+                  <LogoMark size={46} />
+                  <View>
+                    <Text style={styles.brandName}>QR-ATT</Text>
+                    <Text style={styles.brandTag}>Campus Attendance OS</Text>
+                  </View>
+                </View>
+                <Badge label="Secure" tone="success" icon="shield-checkmark" />
+              </View>
+            </FadeIn>
 
-            <Text style={styles.title}>Welcome Back</Text>
-            <Text style={styles.subtitle}>
-              Sign in to record your attendance
-            </Text>
+            <FadeIn delay={70}>
+              <View style={styles.hero}>
+                <Text style={styles.eyebrow}>Welcome back</Text>
+                <Text style={styles.title}>Attendance,{'\n'}engineered.</Text>
+                <Text style={styles.subtitle}>
+                  Sign in to scan event QR codes, track your check-ins, and
+                  manage attendance in real time.
+                </Text>
+              </View>
+            </FadeIn>
 
-            <View style={styles.form}>
-              <Text style={styles.label}>Email</Text>
-              <TextInput
-                style={styles.input}
-                value={email}
-                onChangeText={setEmail}
-                placeholder="your.email@school.edu"
-                placeholderTextColor={COLORS.muted}
-                autoCapitalize="none"
-                keyboardType="email-address"
-                editable={!loading}
-              />
+            <FadeIn delay={130}>
+              <View style={styles.features}>
+                <Badge label="QR powered" tone="info" icon="qr-code-outline" />
+                <Badge label="Cloud sync" tone="violet" icon="cloud-outline" />
+                <Badge label="Cloud logs" tone="neutral" icon="cloud-outline" />
+              </View>
+            </FadeIn>
 
-              <Text style={styles.label}>Password</Text>
-              <TextInput
-                style={styles.input}
-                value={password}
-                onChangeText={setPassword}
-                placeholder="Enter your password"
-                placeholderTextColor={COLORS.muted}
-                secureTextEntry
-                editable={!loading}
-              />
+            <FadeIn delay={190}>
+              <Card style={styles.formCard} glow={COLORS.primary}>
+                <Text style={styles.formEyebrow}>Secure access</Text>
+                <Text style={styles.formTitle}>Sign in</Text>
 
-              {error && <Text style={styles.error}>{error}</Text>}
+                <View style={styles.fields}>
+                  <FormField
+                    label="Email address"
+                    icon="mail-outline"
+                    value={email}
+                    onChangeText={setEmail}
+                    placeholder="your.email@school.edu"
+                    autoCapitalize="none"
+                    keyboardType="email-address"
+                    autoComplete="email"
+                    textContentType="emailAddress"
+                    editable={!loading}
+                  />
+                  <FormField
+                    label="Password"
+                    icon="lock-closed-outline"
+                    value={password}
+                    onChangeText={setPassword}
+                    placeholder="Enter your password"
+                    secure
+                    autoComplete="password"
+                    textContentType="password"
+                    editable={!loading}
+                    onSubmitEditing={handleLogin}
+                    returnKeyType="go"
+                  />
+                </View>
 
-              {loading ? (
-                <ActivityIndicator
-                  size="large"
-                  color={COLORS.primary}
-                  style={styles.loader}
-                />
-              ) : (
-                <AppButton
-                  theme="primary"
-                  title="Sign In"
-                  icon="log-in-outline"
-                  onPress={handleLogin}
-                />
-              )}
-            </View>
+                {error ? (
+                  <View style={styles.errorBanner}>
+                    <Ionicons
+                      name="alert-circle"
+                      size={17}
+                      color={COLORS.danger}
+                    />
+                    <Text style={styles.errorText}>{error}</Text>
+                  </View>
+                ) : null}
 
-            <Link href="/register" style={styles.link}>
-              Don&apos;t have an account? Sign Up
-            </Link>
+                <View style={styles.submit}>
+                  <AppButton
+                    variant="primary"
+                    title="Sign In"
+                    icon="log-in-outline"
+                    onPress={handleLogin}
+                    loading={loading}
+                  />
+                </View>
+              </Card>
+            </FadeIn>
+
+            <FadeIn delay={250}>
+              <View style={styles.footer}>
+                <Text style={styles.footerText}>New to QR-ATT?</Text>
+                <Link href="/register" asChild>
+                  <Pressable>
+                    <Text style={styles.footerLink}>Create an account</Text>
+                  </Pressable>
+                </Link>
+              </View>
+              <Text style={styles.legal}>
+                Protected by Supabase Auth · Session stored in device keychain
+              </Text>
+            </FadeIn>
           </ScrollView>
-        </TouchableWithoutFeedback>
-      </KeyboardAvoidingView>
-    </View>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
+    </AppBackground>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-  },
-  keyboardView: {
+  safe: {
     flex: 1,
   },
-  scrollContent: {
+  flex: {
+    flex: 1,
+  },
+  content: {
     flexGrow: 1,
-    paddingHorizontal: 24,
-    paddingBottom: 40,
+    paddingHorizontal: SPACING.xl,
+    paddingTop: SPACING.lg,
+    paddingBottom: SPACING.xxl,
   },
-  headerContainer: {
-    alignItems: 'flex-start',
-    marginTop: 20,
-    marginBottom: 16,
+  brandRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: SPACING.huge,
+  },
+  brand: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.md,
+  },
+  brandName: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: COLORS.textPrimary,
+    letterSpacing: 0.4,
+  },
+  brandTag: {
+    fontSize: 9,
+    fontWeight: '700',
+    letterSpacing: 1.4,
+    textTransform: 'uppercase',
+    color: COLORS.muted,
+    marginTop: 1,
+  },
+  hero: {
+    marginBottom: SPACING.xl,
+  },
+  eyebrow: {
+    ...TYPOGRAPHY.eyebrow,
+    color: COLORS.primary,
+    marginBottom: SPACING.sm,
   },
   title: {
-    fontSize: 28,
-    fontWeight: '700',
+    fontSize: 42,
+    lineHeight: 46,
+    fontWeight: '800',
+    letterSpacing: -1.6,
     color: COLORS.textPrimary,
-    marginBottom: 4,
   },
   subtitle: {
-    fontSize: 15,
-    lineHeight: 21,
+    ...TYPOGRAPHY.body,
     color: COLORS.textSecondary,
-    marginBottom: 32,
+    marginTop: SPACING.md,
+    maxWidth: 340,
   },
-  form: {
-    marginBottom: 24,
+  features: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: SPACING.sm,
+    marginBottom: SPACING.xxl,
   },
-  label: {
-    fontSize: 14,
-    fontWeight: '600',
+  formCard: {
+    gap: SPACING.md,
+  },
+  formEyebrow: {
+    ...TYPOGRAPHY.eyebrow,
+    color: COLORS.primary,
+  },
+  formTitle: {
+    ...TYPOGRAPHY.section,
+    fontSize: 22,
     color: COLORS.textPrimary,
-    marginBottom: 6,
-    marginTop: 10,
+    marginTop: -SPACING.xs,
   },
-  input: {
-    backgroundColor: COLORS.card,
-    borderRadius: 12,
+  fields: {
+    gap: SPACING.lg,
+    marginTop: SPACING.sm,
+  },
+  errorBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: SPACING.sm,
+    backgroundColor: '#FB718514',
     borderWidth: 1,
-    borderColor: COLORS.border,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 16,
-    color: COLORS.textPrimary,
+    borderColor: '#FB718540',
+    borderRadius: 12,
+    padding: SPACING.md,
   },
-  error: {
-    fontSize: 14,
+  errorText: {
+    flex: 1,
+    fontSize: 13,
+    lineHeight: 18,
     color: COLORS.danger,
-    marginTop: 12,
-    marginBottom: 4,
   },
-  loader: {
-    marginVertical: 16,
+  submit: {
+    marginTop: SPACING.xs,
   },
-  link: {
+  footer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexWrap: 'wrap',
+    gap: SPACING.xs,
+    marginTop: SPACING.xxl,
+  },
+  footerText: {
     fontSize: 14,
-    color: COLORS.accent,
-    fontWeight: '600',
+    color: COLORS.textSecondary,
+  },
+  footerLink: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: COLORS.primary,
+  },
+  legal: {
+    marginTop: SPACING.lg,
+    fontSize: 10,
+    lineHeight: 15,
+    letterSpacing: 0.3,
+    color: COLORS.muted,
+    textAlign: 'center',
   },
 });

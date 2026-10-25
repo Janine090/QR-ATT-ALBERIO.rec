@@ -1,93 +1,119 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+
 import { COLORS } from '@/constants/colors';
+import { RADIUS, SHADOWS, SPACING } from '@/constants/theme';
+
+type Variant = 'primary' | 'secondary' | 'ghost' | 'danger';
 
 type AppButtonProps = {
   title: string;
-  icon: keyof typeof Ionicons.glyphMap;
+  icon?: keyof typeof Ionicons.glyphMap;
   theme?: 'primary';
+  variant?: Variant;
   onPress: () => void;
   disabled?: boolean;
+  loading?: boolean;
+  compact?: boolean;
 };
 
 export default function AppButton({
   title,
   icon,
   theme,
+  variant,
   onPress,
   disabled,
+  loading,
+  compact,
 }: AppButtonProps) {
-  const isPrimary = theme === 'primary';
+  const resolved: Variant = variant ?? (theme === 'primary' ? 'primary' : 'secondary');
+  const isPrimary = resolved === 'primary';
+  const isDanger = resolved === 'danger';
+  const fg = isPrimary
+    ? COLORS.textOnPrimary
+    : isDanger
+      ? COLORS.danger
+      : COLORS.textPrimary;
+
   return (
     <Pressable
       onPress={onPress}
-      disabled={disabled}
+      disabled={disabled || loading}
+      accessibilityRole="button"
       style={({ pressed }) => [
-        styles.buttonInner,
-        isPrimary ? styles.primaryFill : styles.secondaryFill,
+        styles.base,
+        compact && styles.compact,
+        resolved === 'primary' && styles.primary,
+        resolved === 'secondary' && styles.secondary,
+        resolved === 'ghost' && styles.ghost,
+        resolved === 'danger' && styles.danger,
         pressed && styles.pressed,
-        disabled && styles.disabled,
+        (disabled || loading) && styles.disabled,
       ]}
     >
-      <View style={styles.row}>
-        <Ionicons
-          name={icon}
-          size={20}
-          color={isPrimary ? COLORS.textOnPrimary : COLORS.textPrimary}
-        />
-        <Text style={[styles.label, isPrimary && styles.labelPrimary]}>
-          {title}
-        </Text>
-      </View>
+      {loading ? (
+        <ActivityIndicator color={fg} />
+      ) : (
+        <View style={styles.row}>
+          {icon ? <Ionicons name={icon} size={19} color={fg} /> : null}
+          <Text style={[styles.label, { color: fg }]}>{title}</Text>
+        </View>
+      )}
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  buttonInner: {
-    borderRadius: 14,
-    paddingVertical: 16,
-    paddingHorizontal: 16,
+  base: {
+    borderRadius: RADIUS.md,
+    paddingVertical: SPACING.lg,
+    paddingHorizontal: SPACING.lg,
     alignItems: 'center',
     justifyContent: 'center',
     width: '100%',
+    borderWidth: 1,
   },
-  primaryFill: {
+  compact: {
+    paddingVertical: SPACING.sm + 2,
+    paddingHorizontal: SPACING.md,
+  },
+  primary: {
     backgroundColor: COLORS.primary,
-    borderWidth: 1,
-    borderColor: '#A78BFA',
-    shadowColor: '#8B5CF6',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.55,
-    shadowRadius: 12,
-    elevation: 8,
+    borderColor: '#67E8F9',
+    ...SHADOWS.cyan,
   },
-  secondaryFill: {
-    backgroundColor: '#151022CC',
-    borderWidth: 1,
-    borderColor: COLORS.cardBorderNeon,
-    shadowColor: '#8B5CF6',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.18,
-    shadowRadius: 6,
-    elevation: 2,
+  secondary: {
+    backgroundColor: COLORS.card,
+    borderColor: COLORS.border,
+  },
+  ghost: {
+    backgroundColor: 'transparent',
+    borderColor: COLORS.borderSoft,
+  },
+  danger: {
+    backgroundColor: '#FB718514',
+    borderColor: '#FB718544',
   },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: SPACING.sm,
   },
   label: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: COLORS.textPrimary,
-  },
-  labelPrimary: {
+    fontSize: 15,
     fontWeight: '700',
-    color: COLORS.textOnPrimary,
+    letterSpacing: 0.2,
   },
   pressed: {
-    opacity: 0.85,
+    opacity: 0.82,
+    transform: [{ scale: 0.995 }],
   },
   disabled: {
     opacity: 0.5,

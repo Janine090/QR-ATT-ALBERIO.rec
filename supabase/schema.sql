@@ -103,11 +103,30 @@ create policy "Events are readable by any authenticated user"
   on public.events for select
   using (auth.role() = 'authenticated');
 
--- Only the creator can insert / update their events
+-- Helper used by the insert policy. SECURITY DEFINER lets the policy read
+-- the caller's role without recursively evaluating profiles RLS.
+create or replace function public.is_teacher(uid uuid)
+returns boolean
+language sql
+stable
+security definer set search_path = public
+as $$
+  select exists (
+    select 1 from public.profiles
+    where id = uid and role = 'teacher'
+  );
+$$;
+
+revoke all on function public.is_teacher(uuid) from public;
+grant execute on function public.is_teacher(uuid) to authenticated;
+
+-- Only teacher accounts can create events. This is enforced in the database,
+-- not just by hiding the Teacher tab in the app.
 drop policy if exists "Users can insert events" on public.events;
-create policy "Users can insert events"
+drop policy if exists "Teachers can insert events" on public.events;
+create policy "Teachers can insert events"
   on public.events for insert
-  with check (auth.role() = 'authenticated');
+  with check (auth.role() = 'authenticated' and public.is_teacher(auth.uid()));
 
 drop policy if exists "Users can update their own events" on public.events;
 create policy "Users can update their own events"
@@ -148,8 +167,16 @@ language plpgsql
 security definer set search_path = public
 as $$
 begin
-  insert into public.profiles (id, email)
-  values (new.id, new.email)
+  insert into public.profiles (id, email, full_name, role)
+  values (
+    new.id,
+    new.email,
+    nullif(new.raw_user_meta_data ->> 'full_name', ''),
+    case
+      when new.raw_user_meta_data ->> 'role' = 'teacher' then 'teacher'
+      else 'student'
+    end
+  )
   on conflict (id) do nothing;
   return new;
 end;

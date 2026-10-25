@@ -18,6 +18,52 @@ function notify() {
   listeners.forEach((l) => l());
 }
 
+async function syncProfileFromMetadata(user: User) {
+  const meta = user.user_metadata as
+    | { full_name?: unknown; role?: unknown }
+    | undefined;
+  const fullName =
+    typeof meta?.full_name === 'string' ? meta.full_name.trim() : '';
+  const role =
+    meta?.role === 'teacher' || meta?.role === 'student' ? meta.role : null;
+
+  if (!fullName && !role) return;
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('full_name, role')
+    .eq('id', user.id)
+    .maybeSingle();
+
+  try {
+    if (!profile) {
+      await supabase.from('profiles').upsert(
+        {
+          id: user.id,
+          email: user.email ?? '',
+          full_name: fullName || null,
+          role: role ?? 'student',
+        },
+        { onConflict: 'id' }
+      );
+      return;
+    }
+
+    const updates: { full_name?: string; role?: 'teacher' | 'student' } = {};
+    if (fullName && !profile.full_name) {
+      updates.full_name = fullName;
+    }
+    if (role === 'teacher' && profile.role !== 'teacher') {
+      updates.role = 'teacher';
+    }
+    if (Object.keys(updates).length > 0) {
+      await supabase.from('profiles').update(updates).eq('id', user.id);
+    }
+  } catch {
+    // Profile sync is best-effort; never block sign-in on it.
+  }
+}
+
 async function initAuth() {
   if (initialized) return;
   initialized = true;
@@ -25,6 +71,9 @@ async function initAuth() {
     const { data } = await supabase.auth.getSession();
     globalSession = data.session;
     globalUser = data.session?.user ?? null;
+    if (data.session?.user) {
+      syncProfileFromMetadata(data.session.user).catch(() => {});
+    }
   } catch {
     globalSession = null;
     globalUser = null;
@@ -72,19 +121,49 @@ export type SignUpProfile = {
   role: 'student' | 'teacher';
 };
 
+export function authErrorMessage(message: string): string {
+  const m = message.toLowerCase();
+  if (
+    m.includes('unable to resolve host') ||
+    m.includes('fetch failed') ||
+    m.includes('failed to fetch') ||
+    m.includes('network request failed')
+  ) {
+    return 'Cannot reach Supabase. Check your internet connection and make sure EXPO_PUBLIC_SUPABASE_URL in .env is the correct, active project URL.';
+  }
+  if (m.includes('invalid api key')) {
+    return 'Invalid Supabase key. Check EXPO_PUBLIC_SUPABASE_ANON_KEY in .env and restart Expo.';
+  }
+  return message;
+}
+
 export async function signUp(
   email: string,
   password: string,
   profile?: SignUpProfile
 ) {
-  const { data, error } = await supabase.auth.signUp({ email, password });
+  const { data, error } = await supabase.auth.signUp({
+    email,
+    password,
+    options: {
+      data: profile
+        ? { full_name: profile.full_name, role: profile.role }
+        : undefined,
+    },
+  });
   if (!error && data.session && profile) {
-    // The Phase 3 trigger creates the profile row on signup.
-    // Fill in the full_name and role the user chose.
-    await supabase
-      .from('profiles')
-      .update({ full_name: profile.full_name, role: profile.role })
-      .eq('id', data.session.user.id);
+    // The trigger creates the profile row on signup. It reads the
+    // metadata above, and this upsert covers projects where the
+    // updated trigger has not been applied yet.
+    await supabase.from('profiles').upsert(
+      {
+        id: data.session.user.id,
+        email: data.session.user.email ?? email,
+        full_name: profile.full_name,
+        role: profile.role,
+      },
+      { onConflict: 'id' }
+    );
   }
   if (!error && data.session) {
     setAuth(data.session);
@@ -99,6 +178,11 @@ export async function signIn(email: string, password: string) {
   });
   if (!error && data.session) {
     setAuth(data.session);
+    try {
+      await syncProfileFromMetadata(data.session.user);
+    } catch {
+      // Ignore profile sync errors; auth itself succeeded.
+    }
   }
   return { data, error };
 }
